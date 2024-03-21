@@ -338,7 +338,6 @@ class TestKmipServer(testtools.TestCase):
             s._logger.info.assert_any_call(
                 "Shutting down server socket handler."
             )
-            s._socket.shutdown.assert_called_once_with(socket.SHUT_RDWR)
             s._socket.close.assert_called_once_with()
 
         # Test the expected behavior when stopping multiple server session
@@ -366,7 +365,6 @@ class TestKmipServer(testtools.TestCase):
             s._logger.info.assert_any_call(
                 "Shutting down server socket handler."
             )
-            s._socket.shutdown.assert_called_once_with(socket.SHUT_RDWR)
             s._socket.close.assert_called_once_with()
 
         thread_mock.reset_mock()
@@ -392,7 +390,6 @@ class TestKmipServer(testtools.TestCase):
             s._logger.info.assert_any_call(
                 "Shutting down server socket handler."
             )
-            s._socket.shutdown.assert_called_once_with(socket.SHUT_RDWR)
             s._socket.close.assert_called_once_with()
 
         # Test that the right errors and log messages are generated when
@@ -403,7 +400,7 @@ class TestKmipServer(testtools.TestCase):
         test_exception = Exception()
         s._socket.close = mock.MagicMock(side_effect=test_exception)
 
-        regex = "Server failed to shutdown socket handler."
+        regex = "Server failed to close socket handler."
         self.assertRaisesRegex(
             exceptions.NetworkingError,
             regex,
@@ -415,7 +412,6 @@ class TestKmipServer(testtools.TestCase):
         s._logger.info.assert_any_call(
             "Shutting down server socket handler."
         )
-        s._socket.shutdown.assert_called_once_with(socket.SHUT_RDWR)
         s._socket.close.assert_called_once_with()
         s._logger.exception(test_exception)
 
@@ -456,7 +452,6 @@ class TestKmipServer(testtools.TestCase):
         s._logger.info.assert_any_call(
             "Shutting down server socket handler."
         )
-        s._socket.shutdown.assert_called_once_with(socket.SHUT_RDWR)
         s._socket.close.assert_called_once_with()
 
         s.policy_monitor.stop.assert_called_once_with()

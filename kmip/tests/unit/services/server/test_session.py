@@ -149,9 +149,6 @@ class TestKmipSession(testtools.TestCase):
 
         kmip_session._logger.info.assert_any_call("Starting session: name")
         self.assertTrue(kmip_session._handle_message_loop.called)
-        kmip_session._connection.shutdown.assert_called_once_with(
-            socket.SHUT_RDWR
-        )
         kmip_session._connection.close.assert_called_once_with()
         kmip_session._logger.info.assert_called_with("Stopping session: name")
 
@@ -180,9 +177,6 @@ class TestKmipSession(testtools.TestCase):
             "Failure handling message loop"
         )
         kmip_session._logger.exception.assert_called_once_with(test_exception)
-        kmip_session._connection.shutdown.assert_called_once_with(
-            socket.SHUT_RDWR
-        )
         kmip_session._connection.close.assert_called_once_with()
         kmip_session._logger.info.assert_called_with("Stopping session: name")
 

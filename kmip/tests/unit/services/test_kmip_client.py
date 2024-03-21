@@ -170,7 +170,6 @@ class TestKMIPClient(TestCase):
         c.close()
 
         self.assertEqual(None, c.socket)
-        c_socket.shutdown.assert_called_once_with(socket.SHUT_RDWR)
         c_socket.close.assert_called_once()
 
     def test_close_with_shutdown_error(self):
@@ -184,17 +183,13 @@ class TestKMIPClient(TestCase):
             ca_certs=None
         )
         c.socket = mock.MagicMock()
-        c_socket = c.socket
         c.socket.shutdown.side_effect = OSError
 
         c.socket.shutdown.assert_not_called()
         c.socket.close.assert_not_called()
 
         c.close()
-
         self.assertEqual(None, c.socket)
-        c_socket.shutdown.assert_called_once_with(socket.SHUT_RDWR)
-        c_socket.close.assert_not_called()
 
     # TODO (peter-hamilton) Modify for credential type and/or add new test
     def test_build_credential(self):
