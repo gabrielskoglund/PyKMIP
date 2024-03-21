@@ -25,13 +25,20 @@ def pytest_addoption(parser):
         action="store",
         default="client",
         help="Config file section name for client configuration settings")
+    parser.addoption(
+        "--client-config-file",
+        action="store",
+        help="Config file to use"
+    )
 
 
 @pytest.fixture(scope="class")
 def client(request):
     config = request.config.getoption("--config")
+    config_file = request.config.getoption("--client-config-file")
 
-    client = kmip_client.KMIPProxy(config=config)
+    client = kmip_client.KMIPProxy(config_file=config_file) if config_file \
+        else kmip_client.KMIPProxy(config=config)
     client.open()
 
     def finalize():
@@ -44,8 +51,10 @@ def client(request):
 @pytest.fixture(scope="class")
 def simple(request):
     config = request.config.getoption("--config")
+    config_file = request.config.getoption("--client-config-file")
 
-    client = pclient.ProxyKmipClient(config=config)
+    client = pclient.ProxyKmipClient(config_file=config_file) if config_file \
+        else pclient.ProxyKmipClient(config=config)
     client.open()
 
     def finalize():
