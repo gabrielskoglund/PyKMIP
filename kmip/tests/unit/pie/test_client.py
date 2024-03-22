@@ -2499,11 +2499,11 @@ class TestProxyKmipClient(testtools.TestCase):
         Test that the client can sign data.
         """
         mock_signature = b'aaaaaaaaaaaaaaaaaaaaaaaaaa'
-        result = {
+        result = [{
             'result_status': enums.ResultStatus.SUCCESS,
             'unique_identifier': '1',
             'signature': mock_signature
-        }
+        }]
 
         client = ProxyKmipClient()
         client.open()
@@ -2523,6 +2523,43 @@ class TestProxyKmipClient(testtools.TestCase):
 
     @mock.patch('kmip.pie.client.KMIPProxy',
                 mock.MagicMock(spec_set=KMIPProxy))
+    def test_sign_batch(self):
+        """
+        Test that the client can sign a batch of data items.
+        """
+        mock_signatures = [
+            b'aaaaaaaaaaaaaaaaaaaaaaaaaa',
+            b'bbbbbbbbbbbbbbbbbbbbbbbbbb',
+            b'cccccccccccccccccccccccccc',
+        ]
+        result = [{
+            'result_status': enums.ResultStatus.SUCCESS,
+            'unique_identifier': '1',
+            'signature': mock_signatures[i]
+        } for i in range(len(mock_signatures))]
+
+        client = ProxyKmipClient()
+        client.open()
+        client.proxy.sign.return_value = result
+
+        actual_signature = client.sign(
+            [
+                b'\x01\x02\x03\x04\x05\x06\x07\x08'
+                b'\x09\x0a\x0b\x0c\x0c\x0d\x0e\x0f'
+                b'\x10\x11\x12\x13\x14\x15\x16\x17'
+            ],
+            uid='1',
+            cryptographic_parameters={
+                 'padding_method': enums.PaddingMethod.PSS,
+                 'cryptographic_algorithm':
+                 enums.CryptographicAlgorithm.RSA
+            }
+        )
+
+        self.assertEqual(mock_signatures, actual_signature)
+
+    @mock.patch('kmip.pie.client.KMIPProxy',
+                mock.MagicMock(spec_set=KMIPProxy))
     def test_sign_on_invalid_inputs(self):
         """
         Test that TypeError exceptions are raised when trying to sign
@@ -2538,7 +2575,7 @@ class TestProxyKmipClient(testtools.TestCase):
         }
         self.assertRaisesRegex(
             TypeError,
-            "Data to be signed must be bytes.",
+            "Data to be signed must be bytes or list of bytes.",
             client.sign,
             *args,
             **kwargs

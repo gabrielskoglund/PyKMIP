@@ -50,6 +50,7 @@ from kmip.core.messages.contents import Authentication
 from kmip.core.messages.contents import BatchCount
 from kmip.core.messages.contents import Operation
 from kmip.core.messages.contents import ProtocolVersion
+from kmip.core.messages.contents import UniqueBatchItemID
 
 from kmip.core.messages import messages
 
@@ -1085,7 +1086,7 @@ class KMIPProxy(object):
         return result
 
     def sign(self, data, unique_identifier=None,
-             cryptographic_parameters=None, credential=None):
+             cryptographic_parameters=None, credential=None, batch=False):
         """
         Sign specified data using a specified signing key.
 
@@ -1099,9 +1100,16 @@ class KMIPProxy(object):
             credential (Credential): A credential object containing a set of
                 authorization parameters for the operation. Optional, defaults
                 to None.
+            batch (bool): A boolean flag specifying whether or not the
+                operation should be queued up for batch processing. If True,
+                the operation request is built but not sent. If False, all
+                the operation request is built and sent along with all other
+                queued requests.
         Returns:
-            dict: The results of the sign operation, containing the
-                following key/value pairs:
+            list of dict: Each dict corresponds to a sign operation of the
+            batch and are guaranteed to be returned in the same order as
+            the batch items were added. Each dict contain the following
+            key/value pairs:
 
             Key                  | Value
             ---------------------|-----------------------------------------
@@ -1123,32 +1131,24 @@ class KMIPProxy(object):
             data=data
         )
 
+        item_id = UniqueBatchItemID(len(self.batch_items).to_bytes())
         batch_item = messages.RequestBatchItem(
             operation=operation,
-            request_payload=request_payload
+            request_payload=request_payload,
+            unique_batch_item_id=item_id
         )
 
-        request = self._build_request_message(credential, [batch_item])
-        response = self._send_and_receive_message(request)
-        batch_item = response.batch_items[0]
-        payload = batch_item.response_payload
+        if batch:
+            self.batch_items.append(batch_item)
+            return
+        else:
+            self.batch_items.append(batch_item)
+            request = self._build_request_message(credential, self.batch_items)
+            response = self._send_and_receive_message(request)
+            self.batch_items = []
+            results = self._process_batch_items(response)
 
-        result = {}
-
-        if payload:
-            result['unique_identifier'] = payload.unique_identifier
-            result['signature'] = payload.signature_data
-        result['result_status'] = batch_item.result_status.value
-        try:
-            result['result_reason'] = batch_item.result_reason.value
-        except Exception:
-            result['result_reason'] = batch_item.result_reason
-        try:
-            result['result_message'] = batch_item.result_message.value
-        except Exception:
-            result['result_message'] = batch_item.result_message
-
-        return result
+            return results
 
     def mac(self, data, unique_identifier=None,
             cryptographic_parameters=None, credential=None):
@@ -1292,6 +1292,8 @@ class KMIPProxy(object):
             return self._process_query_batch_item
         elif operation == OperationEnum.DISCOVER_VERSIONS:
             return self._process_discover_versions_batch_item
+        elif operation == OperationEnum.SIGN:
+            return self._process_sign_batch_item
         else:
             raise ValueError("no processor for operation: {0}".format(
                 operation))
@@ -1396,6 +1398,28 @@ class KMIPProxy(object):
         result = DiscoverVersionsResult(
             batch_item.result_status, batch_item.result_reason,
             batch_item.result_message, payload.protocol_versions)
+
+        return result
+
+    def _process_sign_batch_item(self, batch_item):
+        payload = batch_item.response_payload
+
+        result = {}
+        result['result_status'] = batch_item.result_status.value
+        result['unique_batch_item_id'] = batch_item.unique_batch_item_id
+
+        try:
+            result['result_reason'] = batch_item.result_reason.value
+        except Exception:
+            result['result_reason'] = batch_item.result_reason
+        try:
+            result['result_message'] = batch_item.result_message.value
+        except Exception:
+            result['result_message'] = batch_item.result_message
+
+        if payload:
+            result['unique_identifier'] = payload.unique_identifier
+            result['signature'] = payload.signature_data
 
         return result
 

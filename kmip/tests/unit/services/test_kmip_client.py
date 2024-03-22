@@ -1548,6 +1548,7 @@ class TestKMIPClient(TestCase):
             )
         )
 
+        result = result[0]
         self.assertEqual('1', result.get('unique_identifier'))
         self.assertEqual(
             b'aaaaaaaaaaaaaaaa',

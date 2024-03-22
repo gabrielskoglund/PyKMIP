@@ -954,8 +954,8 @@ class TestProxyKmipClientIntegration(testtools.TestCase):
     def test_create_key_pair_sign_signature_verify(self):
         """
         Test that the ProxyKmipClient can create an asymmetric key pair and
-        then use that key pair (1) to sign data and (2) verify the signature
-        on the data.
+        then use that key pair (1) to sign data (both in batch and non-batch
+        mode) and (2) verify the signatures on the data.
         """
         # Create a public/private key pair.
         public_key_id, private_key_id = self.client.create_key_pair(
@@ -976,15 +976,17 @@ class TestProxyKmipClientIntegration(testtools.TestCase):
         self.client.activate(private_key_id)
         self.client.activate(public_key_id)
 
+        cryptographic_parameters = {
+            'padding_method': enums.PaddingMethod.PSS,
+            'cryptographic_algorithm': enums.CryptographicAlgorithm.RSA,
+            'hashing_algorithm': enums.HashingAlgorithm.SHA_256
+        }
+
         # Sign a message.
         signature = self.client.sign(
             b'This is a signed message.',
             uid=private_key_id,
-            cryptographic_parameters={
-                'padding_method': enums.PaddingMethod.PSS,
-                'cryptographic_algorithm': enums.CryptographicAlgorithm.RSA,
-                'hashing_algorithm': enums.HashingAlgorithm.SHA_256
-            }
+            cryptographic_parameters=cryptographic_parameters
         )
 
         self.assertIsInstance(signature, six.binary_type)
@@ -994,14 +996,34 @@ class TestProxyKmipClientIntegration(testtools.TestCase):
             b'This is a signed message.',
             signature,
             uid=public_key_id,
-            cryptographic_parameters={
-                'padding_method': enums.PaddingMethod.PSS,
-                'cryptographic_algorithm': enums.CryptographicAlgorithm.RSA,
-                'hashing_algorithm': enums.HashingAlgorithm.SHA_256
-            }
+            cryptographic_parameters=cryptographic_parameters
         )
 
         self.assertEqual(result, enums.ValidityIndicator.VALID)
+
+        # Batch sign several messages
+        messages = [b'message 1', b'message 2', b'message 3']
+        signatures = self.client.sign(
+            messages,
+            uid=private_key_id,
+            cryptographic_parameters=cryptographic_parameters
+        )
+
+        self.assertIsInstance(signatures, list)
+        self.assertEqual(len(signatures), len(messages))
+        for signature in signatures:
+            self.assertIsInstance(signature, six.binary_type)
+
+        # Verify the batch signed message signatures
+        for i, signature in enumerate(signatures):
+            result = self.client.signature_verify(
+                messages[i],
+                signature,
+                uid=public_key_id,
+                cryptographic_parameters=cryptographic_parameters
+            )
+
+            self.assertEqual(result, enums.ValidityIndicator.VALID)
 
         # Clean up.
         self.client.revoke(

@@ -1476,7 +1476,9 @@ class ProxyKmipClient(object):
         Create a digital signature for data using the specified signing key.
 
         Args:
-            data (bytes): The bytes of the data to be signed. Required.
+            data (bytes or list of bytes): The data to be signed. Required.
+                if a list is provided, the data will be processed as a
+                batch operation where each item is signed with the same key.
             uid (string): The unique ID of the signing key to use.
                 Optional, defaults to None.
             cryptographic_parameters (dict): A dictionary containing various
@@ -1485,7 +1487,11 @@ class ProxyKmipClient(object):
                 digital signature algorithm). Optional, defaults to None.
 
         Returns:
-            signature (bytes): Bytes representing the signature of the data
+            signature (bytes or list of bytes): Bytes representing the
+            signature of the data. If a list of data items to be signed was
+            provided, a list of signatures will be returned, where the
+            element at index i is the signature of data item i in the
+            provided list.
 
         Raises:
             ClientConnectionNotOpen: if the client connection is unusable
@@ -1493,8 +1499,10 @@ class ProxyKmipClient(object):
             TypeError: if the input arguments are invalid
         """
         # Check input
-        if not isinstance(data, six.binary_type):
-            raise TypeError("Data to be signed must be bytes.")
+        if not (isinstance(data, six.binary_type) or isinstance(data, list)):
+            raise TypeError(
+                "Data to be signed must be bytes or list of bytes."
+            )
         if uid is not None:
             if not isinstance(uid, six.string_types):
                 raise TypeError("Unique identifier must be a string.")
@@ -1508,22 +1516,45 @@ class ProxyKmipClient(object):
             cryptographic_parameters
         )
 
-        # Sign the provided data and handle results
-        result = self.proxy.sign(
-            data,
-            uid,
-            cryptographic_parameters
-        )
+        # Handle non batch signing
+        if not isinstance(data, list):
+            result = self.proxy.sign(
+                data,
+                uid,
+                cryptographic_parameters
+            )[0]
 
-        status = result.get('result_status')
-        if status == enums.ResultStatus.SUCCESS:
-            return result.get('signature')
-        else:
-            raise exceptions.KmipOperationFailure(
-                status,
-                result.get('result_reason'),
-                result.get('result_message')
+            status = result.get('result_status')
+            if status == enums.ResultStatus.SUCCESS:
+                return result.get('signature')
+            else:
+                raise exceptions.KmipOperationFailure(
+                    status,
+                    result.get('result_reason'),
+                    result.get('result_message')
+                )
+
+        # Handle batch signing
+        for item_no, item in enumerate(data):
+            batch_result = self.proxy.sign(
+                item,
+                uid,
+                cryptographic_parameters,
+                batch=True if item_no < len(data) - 1 else False,
             )
+
+        signatures = []
+        for result in batch_result:
+            status = result.get('result_status')
+            if status == enums.ResultStatus.SUCCESS:
+                signatures.append(result.get('signature'))
+            else:
+                raise exceptions.KmipOperationFailure(
+                    status,
+                    result.get('result_reason'),
+                    result.get('result_message')
+                )
+        return signatures
 
     @is_connected
     def mac(self, data, uid=None, algorithm=None):
