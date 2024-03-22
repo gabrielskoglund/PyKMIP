@@ -27,7 +27,7 @@ with open(version_path, 'r') as f:
         re.MULTILINE
     )
     __version__ = m.group(1)
-readme_path = os.path.join(this_dir, "README.rst")
+readme_path = os.path.join(this_dir, "README.md")
 with open(readme_path, 'r') as f:
     long_description = f.read()
 
@@ -41,7 +41,7 @@ setuptools.setup(
     url='https://github.com/OpenKMIP/PyKMIP',
     license='Apache License, Version 2.0',
     long_description=long_description,
-    long_description_content_type="text/x-rst",
+    long_description_content_type="text/markdown",
     packages=setuptools.find_packages(exclude=["kmip.tests", "kmip.tests.*"]),
     package_data={'kmip': ['kmipconfig.ini', 'logconfig.ini'],
                   'kmip.demos': ['certs/server.crt', 'certs/server.key']},
