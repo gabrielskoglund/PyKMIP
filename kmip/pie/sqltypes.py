@@ -42,6 +42,7 @@ class UsageMaskType(types.TypeDecorator):
     """
 
     impl = types.Integer
+    cache_ok = True
 
     def process_bind_param(self, value, dialect):
         """
@@ -84,6 +85,7 @@ class EnumType(types.TypeDecorator):
     """
 
     impl = types.Integer
+    cache_ok = True
 
     def __init__(self, cls):
         """
